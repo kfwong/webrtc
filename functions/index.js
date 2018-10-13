@@ -20,7 +20,7 @@ db.settings({
 exports.purgeInactiveRooms = functions.https.onRequest((req, res) => {
     const readTime = Date.now();
     //const aDayInMillis = 24 * 60 * 60 * 1000;
-    const aDayInMillis = 5 * 60 * 1000;
+    const aDayInMillis = 30 * 60 * 1000;
     var count = 0;
 
     // Date object stored in milliseconds format since 01 Jan 1970. 
