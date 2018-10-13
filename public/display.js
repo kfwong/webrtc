@@ -26,7 +26,9 @@ class SumoDisplay {
 
     createRoom() {
         console.log(`Creating Room with key: ${this.roomKey}.`);
-        this.db.collection('rooms').doc(this.roomKey).set({});
+        this.db.collection('rooms').doc(this.roomKey).set({
+            createTime: Date.now()
+        });
     }
 
     // playerDoc: the document snapshot in firestore that represents the player.
