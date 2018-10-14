@@ -24,13 +24,16 @@ class SumoClient {
 
     joinRoom() {
         console.log(`${this.playerName} joined the room "${this.roomKey}".`)
-        this.db.collection(`rooms/${this.roomKey}/players`).doc(this.playerName).set({});
+        return this.db.collection(`rooms/${this.roomKey}/players`).doc(this.playerName).set({
+            uid: firebase.auth().currentUser.uid
+        });
     }
 
     sendAnswer(playerDoc, data) {
         console.log(`Sending answer to room "${this.roomKey}".`);
-        playerDoc.ref.set({
-            answer: data
+        return playerDoc.ref.set({
+            answer: data,
+            answerUid: firebase.auth().currentUser.uid
         }, { merge: true });
     }
 
@@ -55,26 +58,43 @@ class SumoClient {
     handleDisconnect() {
         console.log(`Disconnected from ${this.roomKey}`);
         this.player.destroy();
-        this.db.collection(`rooms/${this.roomKey}/players`).doc(this.playerName).delete();
+        return this.db.collection(`rooms/${this.roomKey}/players`).doc(this.playerName).delete();
+    }
+
+    handleListener(snapshot) {
+        this.player = new SimplePeer({ initator: false, trickle: false });
+
+        this.receiveOffer(snapshot);
+
+        this.player.on('error', error => this.handleError(error));
+        this.player.on('connect', () => this.handleConnect());
+        this.player.on('close', () => this.handleDisconnect(change.doc));
+        this.player.on('signal', data => {
+            this.sendAnswer(snapshot, data);
+            this.detachListener();
+        });
     }
 
     start() {
 
-        this.joinRoom();
-
-        this.player = new SimplePeer({ initator: false, trickle: false });
-
-        this.detachListener = this.db.collection(`rooms/${this.roomKey}/players`).doc(this.playerName).onSnapshot(snapshot => {
-            this.receiveOffer(snapshot);
-
-            this.player.on('error', error => this.handleError(error));
-            this.player.on('connect', () => this.handleConnect());
-            this.player.on('close', () => this.handleDisconnect(change.doc));
-            this.player.on('signal', data => {
-                this.sendAnswer(snapshot, data);
-                this.detachListener();
-            });
+        firebase.auth().signInAnonymously().catch(error => {
+            console.error("Fail to initialize player.");
+            console.log(error);
         });
+
+        firebase.auth().onAuthStateChanged(player => {
+            if (player) {
+                console.log(`Initialized player "${playerName}:${player.uid}".`);
+
+                this.joinRoom().then(() => {
+                    this.detachListener = this.db.collection(`rooms/${this.roomKey}/players`).doc(this.playerName)
+                        .onSnapshot(snapshot => this.handleListener(snapshot));
+                });
+
+            } else {
+                console.log(`Player has been decommissioned.`);
+            }
+        })
     }
 
     close() {
